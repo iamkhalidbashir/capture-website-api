@@ -51,7 +51,8 @@ async function doCaptureWork(req, res) {
             console.error(e);
             console.info(`Capture website failed for URL: ${url}`);
             console.info('Retrying with plain Puppeteer...');
-            await tryWithPuppeteer(url, queryParams, res);
+            res.status(500).send(e.message);
+            // await tryWithPuppeteer(url, queryParams, res);
         }
     }
 }
@@ -69,6 +70,8 @@ export function validRequest(req) {
 
 function getQueryParameters(req) {
     const result = getQueryParametersFromUrl(req);
+    if(result.useChromeProfile && typeof result.useChromeProfile !== `string`) throw new Error("useChromeProfile must be a string");
+    const chromeProfile = result.useChromeProfile ? result.useChromeProfile.replace(/\W/g, '') : undefined;
     result.launchOptions = {
         // headless: false,
         args: [
@@ -77,7 +80,8 @@ function getQueryParameters(req) {
             '--hide-scrollbars',
             '--mute-audio',
             '--use-fake-ui-for-media-stream' // Pages that ask for webcam/microphone access
-        ]
+        ],
+        userDataDir: chromeProfile ? `./.chrome/${chromeProfile}` : undefined
     };
     if (!result.timeout) {
         result.timeout = getDefaultTimeoutSeconds();
