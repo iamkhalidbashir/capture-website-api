@@ -3,6 +3,8 @@ import puppeteer from 'puppeteer';
 import PQueue from "p-queue";
 import {getConcurrency, getDefaultTimeoutSeconds, getMaxQueueLength, getSecret, getShowResults} from "./config.js";
 import 'dotenv/config';
+import  ejs from 'ejs'
+import fs from 'fs'
 
 const queue = new PQueue({concurrency: getConcurrency()});
 
@@ -11,6 +13,8 @@ const latest = {
     url: undefined,
     date: undefined
 };
+
+const templateCache = {}
 
 export function showResults() {
     const showResults = getShowResults();
@@ -30,6 +34,38 @@ export async function capture(req, res) {
         console.log('Queueing request...');
     }
     await queue.add(() => doCaptureWork(req, res));
+}
+
+export async function template(req, res) {
+    if (!validRequest(req)) {
+        res.status(403).send('Go away please');
+        return;
+    }
+    
+    const query = getQueryParametersFromUrl(req)
+
+    if(!query.templateUrl && !query.templateName) throw new Error("Url for template is required")
+    const data = query.data
+    const useCache = query.useCache ?? true
+
+    const cacheKey = query.templateName ?? query.templateUrl
+
+    const fetchTemplate = async () => {
+        if (useCache && templateCache[cacheKey]) return templateCache[cacheKey]
+        if(query.templateName)
+            return fs.promises.readFile(`./templates/${query.templateName}.ejs`, 'utf8').catch(err => {
+                console.error(err)
+                throw new Error(`Template '${query.templateName}' not a found!`)
+              });
+        
+        return await fetch(query.templateUrl).then(r => r?.text())
+    }
+
+    const templateText = await fetchTemplate()
+    templateCache[cacheKey] = templateText
+
+    const html = ejs.render(templateText, {data});
+    res.status(200).send(html)
 }
 
 async function doCaptureWork(req, res) {

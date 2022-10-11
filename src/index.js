@@ -1,5 +1,5 @@
 import express from 'express';
-import {capture, latestCapture, latestCapturePage, showResults} from "./helpers.js";
+import {capture, latestCapture, latestCapturePage, showResults, template} from "./helpers.js";
 
 const port = process.env.PORT || 8080;
 const app = express();
@@ -8,7 +8,7 @@ const app = express();
 app.use(function (req, res, next) {
 
     // Website you wish to allow to connect
-    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:8888');
+    res.setHeader('Access-Control-Allow-Origin', '*');
 
     // Request methods you wish to allow
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
@@ -25,6 +25,7 @@ app.use(function (req, res, next) {
 });
 
 app.get('/capture', capture);
+app.get('/template', (req, res) => template(req, res).catch(e => res.status(500).send(e?.message)));
 if (showResults()) {
     app.get('/', latestCapturePage);
     app.get('/latest', latestCapture);
